@@ -16,6 +16,7 @@
         .result-box { margin-top: 20px; padding: 20px; background: #f39c1222; border-radius: 10px; border: 1px solid #f39c12; display: none; }
         .calc-value { font-size: 26px; font-weight: bold; color: #f39c12; }
         .info-text { font-size: 14px; color: #bbb; margin-top: 10px; line-height: 1.5; border-top: 1px solid #444; padding-top: 10px; }
+        .disclaimer { font-size: 11px; color: #888; font-style: italic; margin-top: 15px; line-height: 1.3; }
         .warning-box { background: #441a1a; border: 1px solid #e74c3c; padding: 15px; border-radius: 8px; font-size: 13px; margin-top: 20px; line-height: 1.4; }
         .badge { background: #333; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #f39c12; font-weight: bold; display: inline-block; margin-bottom: 10px; }
         strong { color: #fff; }
@@ -60,6 +61,9 @@
 
     <div id="result" class="result-box">
         <div id="output-content"></div>
+        <div class="disclaimer">
+            <strong>Hinweis:</strong> Diese Berechnung dient lediglich als Orientierungshilfe basierend auf dem Schema nach Dr. Teupe. Die berechneten Werte sind unverbindliche Empfehlungen und müssen zwingend vor der Anwendung mit dem behandelnden Arzt besprochen und individuell angepasst werden. Eine eigenmächtige Dosisänderung erfolgt auf eigene Gefahr.
+        </div>
     </div>
 
     <div class="warning-box">
@@ -80,44 +84,34 @@ function calculateTeupe() {
     if (tdd > 0 && mg > 0) {
         resBox.style.display = "block";
         
-        // Berechnung des Prednisolon-Äquivalents (PÄ) nach Teupe
+        // PÄ Umrechnung nach Teupe
         let pa = 0;
-        if (factor === 0.25) pa = mg / 4; // Hydrocortison: 20mg -> 5mg PÄ
-        else if (factor === 6.66) pa = (mg / 0.75) * 5; // Dexamethason: 0.75mg -> 5mg PÄ
-        else if (factor === 1.25) pa = (mg / 4) * 5; // Triamcinolon/Methyl: 4mg -> 5mg PÄ
-        else if (factor === 2.0) pa = (mg / 2.5) * 5; // Cloprednol: 2.5mg -> 5mg PÄ
-        else pa = mg; // Prednisolon/Prednison/Fluocortolon 1:1
+        if (factor === 0.25) pa = mg / 4; 
+        else if (factor === 6.66) pa = (mg / 0.75) * 5; 
+        else if (factor === 1.25) pa = (mg / 4) * 5; 
+        else if (factor === 2.0) pa = (mg / 2.5) * 5; 
+        else pa = mg; 
 
-        // Bestimmung des Zusatz-Prozentsatzes nach Teupe-Regelwerk
         let percent = 0;
-        if (pa < 5) {
-            percent = 0;
-        } else if (pa < 30) {
-            percent = 0.20; // Untere Erhaltungsdosis-Anpassung
-        } else if (pa <= 40) {
-            percent = 0.30;
-        } else if (pa <= 60) {
-            percent = 0.40;
-        } else if (pa <= 80) {
-            percent = 0.50;
-        } else if (pa > 80) {
-            percent = 1.0; // Hohe Stoßtherapie-Dosen
-        }
+        if (pa < 5) percent = 0;
+        else if (pa < 30) percent = 0.20;
+        else if (pa <= 40) percent = 0.30;
+        else if (pa <= 60) percent = 0.40;
+        else if (pa <= 80) percent = 0.50;
+        else percent = 1.0;
 
         const totalExtraIE = tdd * percent;
         
         let detailText = "";
         if (therapy === "pump") {
-            const hourlyExtra = totalExtraIE / 24;
             const tbr = ((totalExtraIE / tdd) * 100) + 100;
             detailText = `
                 <div class="info-text">
                     <strong>Pumpe (TBR):</strong><br>
-                    Stelle TBR auf <strong>${tbr.toFixed(0)}%</strong> für 24h.<br>
-                    <small>(Zusatz: +${hourlyExtra.toFixed(2)} IE/h)</small>
+                    Stelle TBR auf <strong>${tbr.toFixed(0)}%</strong> für 24h ein.<br>
+                    <small>(Zusatz: +${(totalExtraIE / 24).toFixed(2)} IE/h)</small>
                 </div>`;
         } else {
-            // Verteilung 60/25/15 nach Teupe
             detailText = `
                 <div class="info-text">
                     <strong>Pen (ICT Schema nach Teupe):</strong><br>
