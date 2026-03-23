@@ -1,1 +1,128 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profi Cortison-Rechner (Teupe)</title>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; background: #121212; color: white; padding: 15px; }
+        .container { max-width: 500px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 15px; border: 1px solid #333; }
+        h2 { color: #f39c12; text-align: center; margin-top: 0; }
+        .section-title { font-size: 14px; color: #f39c12; margin: 20px 0 10px 0; border-bottom: 1px solid #333; padding-bottom: 5px; text-transform: uppercase; font-weight: bold; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 13px; margin-bottom: 5px; color: #aaa; }
+        input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #2c2c2c; color: white; box-sizing: border-box; font-size: 16px; }
+        
+        .result-box { margin-top: 20px; padding: 20px; background: #f39c1222; border-radius: 10px; border: 1px solid #f39c12; display: none; }
+        .calc-value { font-size: 26px; font-weight: bold; color: #f39c12; }
+        .info-text { font-size: 13px; color: #bbb; margin-top: 10px; line-height: 1.4; }
+        .warning-box { background: #441a1a; border: 1px solid #e74c3c; padding: 12px; border-radius: 8px; font-size: 12px; margin-top: 20px; }
+        .badge { background: #333; padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #f39c12; }
+    </style>
+</head>
+<body>
 
+<div class="container">
+    <h2>💊 Cortison-Schema</h2>
+    
+    <div class="input-group">
+        <label>Therapie-Form:</label>
+        <select id="therapy" onchange="calculateTeupe()">
+            <option value="pump">Insulinpumpe (CSII)</option>
+            <option value="pen">Pen / Spritze (ICT)</option>
+        </select>
+    </div>
+
+    <div class="section-title">Medikament & Dosis</div>
+    <div class="input-group">
+        <label>Cortison-Art:</label>
+        <select id="cortisonType" onchange="calculateTeupe()">
+            <option value="1">Prednisolon / Prednison (z.B. Decortin)</option>
+            <option value="0.2">Hydrocortison (sehr schwach)</option>
+            <option value="1.25">Methylprednisolon (z.B. Urbason)</option>
+            <option value="5">Triamcinolon (z.B. Volon)</option>
+            <option value="7.5">Dexamethason (sehr stark! z.B. Fortecortin)</option>
+            <option value="30">Betamethason (extrem stark!)</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label>Menge des gewählten Mittels (mg):</label>
+        <input type="number" id="cortisonMg" placeholder="z.B. 4" oninput="calculateTeupe()">
+    </div>
+
+    <div class="section-title">Insulin-Basis</div>
+    <div class="input-group">
+        <label>Gesamt-Tagesdosis (TDD) in IE:</label>
+        <input type="number" id="tdd" placeholder="Basal + Bolus Summe" oninput="calculateTeupe()">
+    </div>
+
+    <div id="result" class="result-box">
+        <div id="output-content"></div>
+    </div>
+
+    <div class="warning-box">
+        <strong>⚠️ Sicherheitshinweis:</strong><br>
+        Cortison wirkt zeitverzögert. Die Resistenz beginnt meist 2–3 Std. nach Einnahme und hält bei hohen Dosen bis zu 24 Std. an. <strong>Gefahr von schweren Unterzuckerungen, wenn das Cortison nachlässt!</strong>
+    </div>
+</div>
+
+<script>
+function calculateTeupe() {
+    const tdd = parseFloat(document.getElementById('tdd').value) || 0;
+    const mg = parseFloat(document.getElementById('cortisonMg').value) || 0;
+    const potency = parseFloat(document.getElementById('cortisonType').value);
+    const therapy = document.getElementById('therapy').value;
+    const resBox = document.getElementById('result');
+    const content = document.getElementById('output-content');
+
+    if (tdd > 0 && mg > 0) {
+        resBox.style.display = "block";
+        
+        // Umrechnung auf Prednisolon-Äquivalent
+        const prednisolonEquiv = mg * potency;
+        
+        // Teupe Schema (vereinfacht auf Basis der Prednisolon-Menge)
+        let percentAdd = 0;
+        if (prednisolonEquiv <= 2) percentAdd = 0.05;
+        else if (prednisolonEquiv <= 5) percentAdd = 0.10;
+        else if (prednisolonEquiv <= 10) percentAdd = 0.20;
+        else if (prednisolonEquiv <= 20) percentAdd = 0.40;
+        else if (prednisolonEquiv <= 40) percentAdd = 0.80;
+        else percentAdd = 1.0;
+
+        const totalExtraIE = tdd * percentAdd;
+        const hourlyExtra = totalExtraIE / 24;
+
+        let detailText = "";
+        if (therapy === "pump") {
+            const currentBasalRate = tdd * 0.5 / 24; // Annahme: Basal ist ca 50% der TDD
+            const tbrPercent = ((hourlyExtra / (tdd/24)) * 100) + 100;
+            detailText = `
+                <div class="info-text">
+                    <strong>Pumpe (TBR):</strong><br>
+                    Stelle eine temporäre Basalrate von <strong>${tbrPercent.toFixed(0)}%</strong> für 24h ein.<br>
+                    <small>(Entspricht +${hourlyExtra.toFixed(2)} IE pro Stunde)</small>
+                </div>`;
+        } else {
+            detailText = `
+                <div class="info-text">
+                    <strong>Pen (Zusatz-Insulin):</strong><br>
+                    Spritze zusätzlich <strong>${totalExtraIE.toFixed(1)} IE</strong> Basal- oder NPH-Insulin.<br>
+                    <small>Teupe empfiehlt bei ICT oft die Gabe von NPH-Insulin parallel zur Cortisonwirkung.</small>
+                </div>`;
+        }
+
+        content.innerHTML = `
+            <div class="badge">Äquivalent: ${prednisolonEquiv.toFixed(1)}mg Prednisolon</div>
+            <div class="calc-value">+${totalExtraIE.toFixed(1)} IE gesamt</div>
+            ${detailText}
+        `;
+    } else {
+        resBox.style.display = "none";
+    }
+}
+</script>
+
+</body>
+</html>
