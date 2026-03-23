@@ -17,13 +17,13 @@
         .calc-value { font-size: 26px; font-weight: bold; color: #f39c12; }
         .info-text { font-size: 13px; color: #bbb; margin-top: 10px; line-height: 1.4; }
         .warning-box { background: #441a1a; border: 1px solid #e74c3c; padding: 12px; border-radius: 8px; font-size: 12px; margin-top: 20px; }
-        .badge { background: #333; padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #f39c12; }
+        .badge { background: #333; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #f39c12; font-weight: bold; display: inline-block; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>💊 Cortison-Schema</h2>
+    <h2>💊 Cortison-Schema (Teupe)</h2>
     
     <div class="input-group">
         <label>Therapie-Form:</label>
@@ -35,26 +35,29 @@
 
     <div class="section-title">Medikament & Dosis</div>
     <div class="input-group">
-        <label>Cortison-Art:</label>
+        <label>Cortison-Art wählen:</label>
         <select id="cortisonType" onchange="calculateTeupe()">
             <option value="1">Prednisolon / Prednison (z.B. Decortin)</option>
-            <option value="0.2">Hydrocortison (sehr schwach)</option>
+            <option value="0.2">Kortisol / Hydrocortison</option>
             <option value="1.25">Methylprednisolon (z.B. Urbason)</option>
             <option value="5">Triamcinolon (z.B. Volon)</option>
-            <option value="7.5">Dexamethason (sehr stark! z.B. Fortecortin)</option>
-            <option value="30">Betamethason (extrem stark!)</option>
+            <option value="1">Fluocortolon</option>
+            <option value="2">Cloprednol</option>
+            <option value="5">Paramethason</option>
+            <option value="7.5">Dexamethason (z.B. Fortecortin)</option>
+            <option value="30">Betamethason (extrem stark)</option>
         </select>
     </div>
 
     <div class="input-group">
-        <label>Menge des gewählten Mittels (mg):</label>
-        <input type="number" id="cortisonMg" placeholder="z.B. 4" oninput="calculateTeupe()">
+        <label>Menge in mg:</label>
+        <input type="number" id="cortisonMg" placeholder="z.B. 20" oninput="calculateTeupe()">
     </div>
 
     <div class="section-title">Insulin-Basis</div>
     <div class="input-group">
         <label>Gesamt-Tagesdosis (TDD) in IE:</label>
-        <input type="number" id="tdd" placeholder="Basal + Bolus Summe" oninput="calculateTeupe()">
+        <input type="number" id="tdd" placeholder="Summe Basal + Bolus" oninput="calculateTeupe()">
     </div>
 
     <div id="result" class="result-box">
@@ -62,8 +65,8 @@
     </div>
 
     <div class="warning-box">
-        <strong>⚠️ Sicherheitshinweis:</strong><br>
-        Cortison wirkt zeitverzögert. Die Resistenz beginnt meist 2–3 Std. nach Einnahme und hält bei hohen Dosen bis zu 24 Std. an. <strong>Gefahr von schweren Unterzuckerungen, wenn das Cortison nachlässt!</strong>
+        <strong>⚠️ WICHTIG:</strong><br>
+        Die Insulinresistenz beginnt oft erst 2-3 Stunden nach Einnahme. Bei Pumpen die TBR also ggf. leicht versetzt starten. <b>Niemals die Basalrate erhöhen, wenn das Cortison nicht mehr wirkt!</b>
     </div>
 </div>
 
@@ -79,44 +82,48 @@ function calculateTeupe() {
     if (tdd > 0 && mg > 0) {
         resBox.style.display = "block";
         
-        // Umrechnung auf Prednisolon-Äquivalent
-        const prednisolonEquiv = mg * potency;
+        // Prednisolon-Äquivalent berechnen
+        const equiv = mg * potency;
         
-        // Teupe Schema (vereinfacht auf Basis der Prednisolon-Menge)
+        // Teupe-Zuschlagstabelle (Prednisolon-Äquivalent -> % TDD)
         let percentAdd = 0;
-        if (prednisolonEquiv <= 2) percentAdd = 0.05;
-        else if (prednisolonEquiv <= 5) percentAdd = 0.10;
-        else if (prednisolonEquiv <= 10) percentAdd = 0.20;
-        else if (prednisolonEquiv <= 20) percentAdd = 0.40;
-        else if (prednisolonEquiv <= 40) percentAdd = 0.80;
-        else percentAdd = 1.0;
+        if (equiv <= 2) percentAdd = 0.10;
+        else if (equiv <= 5) percentAdd = 0.20;
+        else if (equiv <= 10) percentAdd = 0.40;
+        else if (equiv <= 20) percentAdd = 0.60;
+        else if (equiv <= 40) percentAdd = 0.80;
+        else percentAdd = 1.0; // Ab 40mg Prednisolon Verdopplung möglich
 
         const totalExtraIE = tdd * percentAdd;
         const hourlyExtra = totalExtraIE / 24;
 
-        let detailText = "";
+        let therapyDetail = "";
         if (therapy === "pump") {
-            const currentBasalRate = tdd * 0.5 / 24; // Annahme: Basal ist ca 50% der TDD
-            const tbrPercent = ((hourlyExtra / (tdd/24)) * 100) + 100;
-            detailText = `
+            // Vereinfachte TBR Berechnung: (Total Zusatz / Normal-Basal) * 100 + 100
+            // Annahme: Basal ist ca. 50% der TDD
+            const normalBasalHourly = (tdd * 0.5) / 24;
+            const tbrValue = ((hourlyExtra / normalBasalHourly) * 100) + 100;
+            
+            therapyDetail = `
                 <div class="info-text">
                     <strong>Pumpe (TBR):</strong><br>
-                    Stelle eine temporäre Basalrate von <strong>${tbrPercent.toFixed(0)}%</strong> für 24h ein.<br>
-                    <small>(Entspricht +${hourlyExtra.toFixed(2)} IE pro Stunde)</small>
+                    Stelle eine temporäre Basalrate von <strong>${tbrValue.toFixed(0)}%</strong> für 24h ein.<br>
+                    <small>(Entspricht +${hourlyExtra.toFixed(2)} IE zusätzlich pro Stunde)</small>
                 </div>`;
         } else {
-            detailText = `
+            therapyDetail = `
                 <div class="info-text">
-                    <strong>Pen (Zusatz-Insulin):</strong><br>
-                    Spritze zusätzlich <strong>${totalExtraIE.toFixed(1)} IE</strong> Basal- oder NPH-Insulin.<br>
-                    <small>Teupe empfiehlt bei ICT oft die Gabe von NPH-Insulin parallel zur Cortisonwirkung.</small>
+                    <strong>Pen / Spritze:</strong><br>
+                    Spritze zusätzlich <strong>${totalExtraIE.toFixed(1)} IE</strong> NPH- oder Basalinsulin.<br>
+                    <small>Teile die Dosis ggf. auf, falls dein Basalinsulin keine 24h wirkt.</small>
                 </div>`;
         }
 
         content.innerHTML = `
-            <div class="badge">Äquivalent: ${prednisolonEquiv.toFixed(1)}mg Prednisolon</div>
+            <div class="badge">Äquivalent: ${equiv.toFixed(1)} mg Prednisolon</div>
             <div class="calc-value">+${totalExtraIE.toFixed(1)} IE gesamt</div>
-            ${detailText}
+            <p style="color: #f39c12; margin: 4px 0;">(+${(percentAdd*100).toFixed(0)}% der Tagesdosis)</p>
+            ${therapyDetail}
         `;
     } else {
         resBox.style.display = "none";
