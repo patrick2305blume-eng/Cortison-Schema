@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profi Cortison-Rechner (Teupe)</title>
+    <title>Cortison-Schema nach Dr. Teupe</title>
     <style>
         body { font-family: -apple-system, system-ui, sans-serif; background: #121212; color: white; padding: 15px; }
         .container { max-width: 500px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 15px; border: 1px solid #333; }
@@ -12,10 +12,9 @@
         .input-group { margin-bottom: 15px; }
         label { display: block; font-size: 13px; margin-bottom: 5px; color: #aaa; }
         input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #2c2c2c; color: white; box-sizing: border-box; font-size: 16px; }
-        
         .result-box { margin-top: 20px; padding: 20px; background: #f39c1222; border-radius: 10px; border: 1px solid #f39c12; display: none; }
         .calc-value { font-size: 26px; font-weight: bold; color: #f39c12; }
-        .info-text { font-size: 13px; color: #bbb; margin-top: 10px; line-height: 1.4; }
+        .info-text { font-size: 13px; color: #bbb; margin-top: 10px; line-height: 1.4; border-top: 1px solid #444; padding-top: 10px; }
         .warning-box { background: #441a1a; border: 1px solid #e74c3c; padding: 12px; border-radius: 8px; font-size: 12px; margin-top: 20px; }
         .badge { background: #333; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: #f39c12; font-weight: bold; display: inline-block; margin-bottom: 10px; }
     </style>
@@ -35,29 +34,25 @@
 
     <div class="section-title">Medikament & Dosis</div>
     <div class="input-group">
-        <label>Cortison-Art wählen:</label>
+        <label>Cortison-Art (Wirkstoff):</label>
         <select id="cortisonType" onchange="calculateTeupe()">
-            <option value="1">Prednisolon / Prednison (z.B. Decortin)</option>
-            <option value="0.2">Kortisol / Hydrocortison</option>
-            <option value="1.25">Methylprednisolon (z.B. Urbason)</option>
-            <option value="5">Triamcinolon (z.B. Volon)</option>
-            <option value="1">Fluocortolon</option>
-            <option value="2">Cloprednol</option>
-            <option value="5">Paramethason</option>
-            <option value="7.5">Dexamethason (z.B. Fortecortin)</option>
-            <option value="30">Betamethason (extrem stark)</option>
+            <option value="1.0">Prednisolon / Prednison / Fluocortolon</option>
+            <option value="0.25">Kortisol / Hydrocortison</option>
+            <option value="2.0">Cloprednol</option>
+            <option value="1.25">Methylprednisolon / Triamcinolon</option>
+            <option value="6.66">Dexamethason / Betamethason</option>
         </select>
     </div>
 
     <div class="input-group">
-        <label>Menge in mg:</label>
-        <input type="number" id="cortisonMg" placeholder="z.B. 20" oninput="calculateTeupe()">
+        <label>Dosis des Medikaments (mg):</label>
+        <input type="number" id="cortisonMg" placeholder="z.B. 50" oninput="calculateTeupe()">
     </div>
 
     <div class="section-title">Insulin-Basis</div>
     <div class="input-group">
         <label>Gesamt-Tagesdosis (TDD) in IE:</label>
-        <input type="number" id="tdd" placeholder="Summe Basal + Bolus" oninput="calculateTeupe()">
+        <input type="number" id="tdd" placeholder="Basal + Bolus + Korrektur" oninput="calculateTeupe()">
     </div>
 
     <div id="result" class="result-box">
@@ -66,7 +61,7 @@
 
     <div class="warning-box">
         <strong>⚠️ WICHTIG:</strong><br>
-        Die Insulinresistenz beginnt oft erst 2-3 Stunden nach Einnahme. Bei Pumpen die TBR also ggf. leicht versetzt starten. <b>Niemals die Basalrate erhöhen, wenn das Cortison nicht mehr wirkt!</b>
+        [span_9](start_span)Beginne mit der Insulinhöherdosierung bereits <b>3 Stunden nach Cortisongabe</b>, auch wenn der BZ noch normal ist, um die Resistenzphase abzufangen.[span_9](end_span)
     </div>
 </div>
 
@@ -74,7 +69,7 @@
 function calculateTeupe() {
     const tdd = parseFloat(document.getElementById('tdd').value) || 0;
     const mg = parseFloat(document.getElementById('cortisonMg').value) || 0;
-    const potency = parseFloat(document.getElementById('cortisonType').value);
+    const factor = parseFloat(document.getElementById('cortisonType').value);
     const therapy = document.getElementById('therapy').value;
     const resBox = document.getElementById('result');
     const content = document.getElementById('output-content');
@@ -82,48 +77,54 @@ function calculateTeupe() {
     if (tdd > 0 && mg > 0) {
         resBox.style.display = "block";
         
-        // Prednisolon-Äquivalent berechnen
-        const equiv = mg * potency;
+        // Berechnung des Prednisolon-Äquivalents (PÄ) nach Teupe-Tabelle
+        // Referenz: 5mg Prednisolon = 0,75mg Dexa = 4mg Triam = 20mg Hydro
+        let pa = 0;
+        if (factor === 0.25) pa = mg / 4; // Hydrocortison: 20mg -> 5mg PÄ
+        else if (factor === 6.66) pa = mg / 0.15; // Dexa: 0.75mg -> 5mg PÄ
+        else if (factor === 1.25) pa = mg * 1.25; // Triam/Methyl: 4mg -> 5mg PÄ
+        else if (factor === 2.0) pa = mg * 2.0; // Cloprednol: 2.5mg -> 5mg PÄ
+        else pa = mg; // Prednisolon/Prednison/Fluocortolon 1:1
+
+        // Bestimmung des Zusatz-Prozentsatzes nach Teupe-Regelwerk
+        let percent = 0;
+        if (pa < 5) percent = 0; 
+        else if (pa < 30) percent = 0.20; // Schätzung für Erhaltungsdosis (5-25 PÄ)
+        else if (pa <= 40) percent = 0.30;
+        else if (pa <= 60) percent = 0.40;
+        else if (pa <= 80) percent = 0.50;
+        else percent = 1.0; // Hohe Dosen (Stoßtherapie)
+
+        const totalExtraIE = tdd * percent;
         
-        // Teupe-Zuschlagstabelle (Prednisolon-Äquivalent -> % TDD)
-        let percentAdd = 0;
-        if (equiv <= 2) percentAdd = 0.10;
-        else if (equiv <= 5) percentAdd = 0.20;
-        else if (equiv <= 10) percentAdd = 0.40;
-        else if (equiv <= 20) percentAdd = 0.60;
-        else if (equiv <= 40) percentAdd = 0.80;
-        else percentAdd = 1.0; // Ab 40mg Prednisolon Verdopplung möglich
-
-        const totalExtraIE = tdd * percentAdd;
-        const hourlyExtra = totalExtraIE / 24;
-
-        let therapyDetail = "";
+        let detailText = "";
         if (therapy === "pump") {
-            // Vereinfachte TBR Berechnung: (Total Zusatz / Normal-Basal) * 100 + 100
-            // Annahme: Basal ist ca. 50% der TDD
-            const normalBasalHourly = (tdd * 0.5) / 24;
-            const tbrValue = ((hourlyExtra / normalBasalHourly) * 100) + 100;
-            
-            therapyDetail = `
+            const hourlyExtra = totalExtraIE / 24;
+            const normalBasal = (tdd * 0.5) / 24;
+            const tbr = ((hourlyExtra / normalBasal) * 100) + 100;
+            detailText = `
                 <div class="info-text">
                     <strong>Pumpe (TBR):</strong><br>
-                    Stelle eine temporäre Basalrate von <strong>${tbrValue.toFixed(0)}%</strong> für 24h ein.<br>
-                    <small>(Entspricht +${hourlyExtra.toFixed(2)} IE zusätzlich pro Stunde)</small>
+                    Stelle TBR auf <strong>${tbr.toFixed(0)}%</strong> für 24h.<br>
+                    <small>(Zusatz: +${hourlyExtra.toFixed(2)} IE/h)</small>
                 </div>`;
         } else {
-            therapyDetail = `
+            // Aufteilung nach Teupe: 60%, 25%, 15%
+            detailText = `
                 <div class="info-text">
-                    <strong>Pen / Spritze:</strong><br>
-                    Spritze zusätzlich <strong>${totalExtraIE.toFixed(1)} IE</strong> NPH- oder Basalinsulin.<br>
-                    <small>Teile die Dosis ggf. auf, falls dein Basalinsulin keine 24h wirkt.</small>
+                    <strong>Pen (ICT Schema nach Teupe):</strong><br>
+                    • Nach 3h: <strong>${(totalExtraIE * 0.6).toFixed(1)} IE</strong><br>
+                    • Nach 6h: <strong>${(totalExtraIE * 0.25).toFixed(1)} IE</strong><br>
+                    • Nach 9h: <strong>${(totalExtraIE * 0.15).toFixed(1)} IE</strong><br>
+                    <small>Als Normalinsulin (bei Analog +2h verzögern).</small>
                 </div>`;
         }
 
         content.innerHTML = `
-            <div class="badge">Äquivalent: ${equiv.toFixed(1)} mg Prednisolon</div>
+            <div class="badge">PÄ: ${pa.toFixed(1)} mg Prednisolon</div>
             <div class="calc-value">+${totalExtraIE.toFixed(1)} IE gesamt</div>
-            <p style="color: #f39c12; margin: 4px 0;">(+${(percentAdd*100).toFixed(0)}% der Tagesdosis)</p>
-            ${therapyDetail}
+            <p style="color: #f39c12; margin: 5px 0;">(+${(percent * 100).toFixed(0)}% der Tagesdosis)</p>
+            ${detailText}
         `;
     } else {
         resBox.style.display = "none";
